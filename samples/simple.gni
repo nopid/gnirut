@@ -1,0 +1,13 @@
+def [s|search|t>:
+  s. x:x, 1
+  1. ->, 2
+  2. _:_, 1 | x:x, t
+
+def [s|back|t>:
+  <s|search|t]
+
+[gauche|search|droite>
+droite. ->, cote
+cote. _:x, etiord
+etiord. <-, etoc
+[etoc|back|ehcuag>

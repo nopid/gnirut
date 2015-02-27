@@ -1,0 +1,45 @@
+# Sample gnirut source file
+
+def [s|search|t>:
+	s. 1:1,s'
+	s'. ->,s''
+	s''. 0:0,s' | 1:1,t
+
+def [t|hcraes|s>:
+	# use the reverse machine
+	<t|search|s]
+
+def [s|searchL|t>:
+	# same machine but invert -> and <-
+	[s|lr search|t>
+
+def [s|f|a,b,c,d>:
+	s. 0:0,a | 1:1,b | 2:2,c | 3:3,d
+
+def [s|g|t>:
+	s. ->,s'
+	s'. 1:0,s''
+	s''. ->,s'''
+	s'''. 0:1,s4
+	s4. ->,t
+
+def [a,b,c,d|h|s>:
+	a. 0:0,s
+	b. 0:1,s
+	c. 0:2,s
+	d. 0:3,s
+def [s|loopy|l,t>:
+	s. ->,s'
+	s'. 0:0,l | 1:0,t
+
+def [s|lsearch|t>:
+	# you loop by reusing the same state as both input and output
+	[s|loopy|s,t>
+
+def [s|withaux|t>:
+	# you can nest definitions
+	def [s|aux|t,u>:
+		s. ->,1
+		1. 0:0,t | 1:0,u
+	[s|aux|s,t>
+

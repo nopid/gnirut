@@ -1,0 +1,409 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[scale=0.8,centering]{geometry}
+\usepackage{amsfonts,pifont,amsthm}
+\theoremstyle{remark} 
+\newtheorem{exercise}{Exercise}
+\long\def\symbolfootnote[#1]#2{\begingroup%
+\def\thefootnote{\fnsymbol{footnote}}\footnote[#1]{#2}\endgroup}
+\newcommand\doit[1]{\medskip\par\noindent\ding{229}~\textsf{#1}}
+\title{\textsc{Gnirut}: a tutorial}
+\author{N. Ollinger}
+\date{version 1.0 -- April 8th, 2008}
+\begin{document}
+\maketitle
+\begin{abstract}
+\textsc{Gnirut} is a programming toolkit built around a language for describing Turing 
+machines, with special features oriented towards the construction of reversible Turing machines and the 
+use of so-called Hooper's style recursive calls.
+\end{abstract}
+
+\section{Components of the \textsc{Gnirut} toolkit}
+
+After proper installation, the \textsc{Gnirut} programming toolkit consists of the following programs 
+plus several contributed third-party tools not described here:
+\begin{description}
+	\item[\texttt{gnirut}] is an interactive interpreter of the \textsc{Gni} language. 
+	It is the main program that will be used through this tutorial.
+	\item[\texttt{gnirutc}] is a compiler which transforms \textsc{Gni} source code into \textsc{Rut}
+	Turing machine binary format. It is precisely equivalent to launch the interpreter, issue a 
+	\texttt{@use} followed by a \texttt{@save} command and quitting.
+	\item[\texttt{gnipp}] is a source beauty-fuller/pretty-printer: given a \textsc{Gni} source file as 
+	input, it produces a \LaTeX\ source for proper inclusion into \LaTeX\ documents. The examples in this 
+	tutorial are typeset using \texttt{gnipp}.
+	\item[\texttt{rutdump}] is a program for printing in a human-readable form the content of a 
+	\textsc{Rut} 
+	Turing machine binary format. It is precisely equivalent to launch the interpreter, issue a
+	\texttt{@load} followed by a \texttt{@dump} command and quitting.
+	\item[\texttt{rutrev}] is a program for reverting a (reversible) \textsc{Rut} 
+	Turing machine binary format and save it into a new \textsc{Rut} file. 
+	It is precisely equivalent to launch the interpreter, issue a
+	\texttt{@load} followed by a \texttt{@revert}, followed by a \texttt{@save} command and quitting.
+	\item[\texttt{rutrun}] 	is a program for running a 
+	\textsc{Rut} 
+	Turing machine binary format on a specific input starting from a given state. 
+	It is precisely equivalent to launch the interpreter, issue a
+	\texttt{@load} followed by a \texttt{@run} command and quitting.
+\end{description}
+
+\section{Programming Turing machines}
+
+In this part, we will get familiar with the basic usage of the \textsc{Gni} language: how to define
+a machine, use macros to avoid writing the same things again and again, load and save \textsc{Rut}
+files, store programs in files and include them.
+
+\doit{Launch the \texttt{gnirut} interpreter in a terminal. After announcing itself, it displays a
+\texttt{>>>} prompt, waiting for your commands. To quit the interpreter at any time, just hit 
+\texttt{Ctrl+C} ou \texttt{Ctrl+D}.}
+
+\subsection{Formal \textsc{Rut} machines}
+
+\textsc{Gni} programs specify \textsc{Rut} machines. Let us first describe \textsc{Rut} machines
+in an abstract formal way.
+
+\smallskip
+A \textsc{Rut} Turing machine is triple $(S,\Sigma,I)$ where $S$ is a finite set of states,
+$\Sigma$ is a finite set of symbols, and $I$ is a finite set of instructions, a subset of
+$S\times \left\{\leftarrow,\rightarrow\right\}\times S$ (move instructions) union
+$S\times\Sigma\times\Sigma\times S$ (matching instructions). All machines considered are
+supposed to be deterministic: if a state $s$ appears in a move instruction $(s,\ldots)$, then
+it does not appear in any other instruction; if a state $s$ appears in a matching instruction
+$(s,a,\ldots)$, then the other instructions it appears in are only matching instructions
+$(s,b,\ldots)$ where $a\neq b$.
+
+\smallskip A configuration of a \textsc{Rut} machine $(S,\Sigma,I)$ is a triple $(s,k,t)$ 
+where $s\in S$ is the current state of the machine, $k\in\mathbb{Z}$ is the position of
+the head of the machine and $t\in\Sigma^\mathbb{Z}$ is a coloring of a bi-infinite tape by symbols.
+
+\smallskip Starting from a configuration $(s,k,t)$, in one step of computation, the machine
+$(S,\Sigma,I)$ looks up at its instruction set $I$ for an instruction associated to state $s$:
+\begin{itemize}
+	\item if there exists a move instruction $(s,\leftarrow,s')$, the machine enters configuration $(s',k-1,t)$;
+	\item if there exists a move instruction $(s,\rightarrow,s')$, the machine enters configuration $(s',k+1,t)$;
+	\item if there exists a matching instruction $(s,a,b,s')$ and if $t(k)=a$, the machine enters configuration $(s',k,t')$ where $t'$ is equal to $t$ everywhere but in $k$ where $t'(k)=b$;
+	\item if no such instruction exists, the machine halts.
+\end{itemize}
+
+\smallskip A \textsc{Rut} machine is complete if it cannot halt.
+A \textsc{Rut} machine is reversible if there exists a second \textsc{Rut} machine such
+that for any configuration $c$, if the first machine transforms the $c$ into $c'$ in one step,
+then the second machine transforms $c'$ into $c$ in one step.
+
+\subsection{Basics statements}
+
+A \textsc{Gni} program is a sequence of statements. Each statement is written on a separate
+line. As we will see when discussing macros,
+the indentation matters in a \textsc{Gni} program. For this subsection, just be sure not to 
+put spaces or tabulations in front of you statements. Comments can be added to statements:
+starting by a \verb+#+ symbol, the comment run until the end of the line. Comments are
+just ignored by the interpreter.
+
+\smallskip In a \textsc{Gni} program, states and symbols are represented by identifiers:
+non-empty sequences of letters (lowercase or uppercase, case-sensitive), digits, 
+underscore, dot and prime
+(more precisely, any sequence matching the regular expression \verb+[.a-zA-Z0-9_']*[a-zA-Z0-9_']+).
+The set of states and symbols of the machine defined by a program is the set of states
+and symbols appearing in its statements.
+
+\medskip
+\noindent The syntax of basic statements is the following:
+\begin{description}
+	\item[\texttt{s.~<-, s'}] move instruction $(s,\leftarrow,s')$;
+	\item[\texttt{s.~->, s'}] move instruction $(s,\rightarrow,s')$;
+	\item[\texttt{s.~a:b, s'}] matching instruction $(s,a,b,s')$.
+\end{description}
+
+When not describing precise syntax, we will give programs in a stylized form like in the following 
+example. Notice that the line numbers are just given to help reading and should not be typed.
+
+\begin{center}
+\begin{minipage}{0.8\linewidth}
+	$\null\llap{\tiny 1\kern 1.5em}\mbox{\em begin}.~\mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em search}$\\
+	$\null\llap{\tiny 2\kern 1.5em}\mbox{\em search}.~\rightarrow, \mbox{\em loop}$\\
+	$\null\llap{\tiny 3\kern 1.5em}\mbox{\em loop}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em search}$\\
+	$\null\llap{\tiny 4\kern 1.5em}\mbox{\em loop}.~\mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em end}$\\
+\end{minipage}
+\end{center}
+
+\vspace{-3ex}
+\doit{Enter these statements, one after the other, into your interpreter.}
+
+\medskip
+To see the current defined machine inside the interpreter, type the special command \verb+@dump+.
+
+\doit{Type \texttt{@dump} and see what your interpreter currently knows. Notice that the
+matching instructions appear in some compound form.}
+
+\medskip
+To test the machine behavior, it is possible to run it on partial configurations, using the 
+\verb+@show+ command. The syntax is the following:
+\begin{description}
+	\item[\texttt{@show s +n "abababababab"}] run the machine starting from the configuration
+	obtained by the tape content \texttt{abababababab} (only 1 letter identifiers allowed), in
+	state \texttt{s} at position \texttt{n} from the left side of the tape, stops on halt
+	or when the head exits the defined tape region;
+	\item[\texttt{@show +mx s +n "abababababab"}] same as above but execute during at most
+	\texttt{mx} time steps. Convenient to avoid infinite loops during debugging.
+\end{description}
+
+\doit{Test your machine with \texttt{@show begin +1 "\_x\_\_\_x"}}
+
+\begin{exercise}\label{ex:s}
+Program in the interpreter a small machine that starting in state $s$ on the first letter of
+a word $x{\_}^{n}x\_$, modifies the word into $x{\_}^{n+1}x$ and halts in state $t$ at the 
+same position. Run it!
+\end{exercise}
+
+\subsection{Compound statements}
+
+To simplify the writing of matching statements, several matching with the same initial state can
+be merged into a compound statement. With the same philosophy, default behavior can be defined to
+facilitate the writing of compound matchings of the kind \emph{replace $a$ by $b$ and enter state $t$
+but if the letter is not $a$ neither $b$ or $c$ then replace it by $x$ and enter state $u$}.
+The syntax of compound statements is the following:
+\begin{description}
+	\item[\texttt{s.~a:b, t | b:c, u | d:e, v}] sequence of matching instructions $(s,a,b,t)$, 
+	$(s,b,c,u)$, $(s,d,e,v)$;
+	\item[\texttt{s.~a:b, s' else t}] same as before but with a default behavior: on any letter
+	not defined in the compound matching instructions, do not modify the letter but jump to state $t$:
+	it is syntactically equivalent to replace \texttt{else t} by $| w:w, t$ for each letter $w$ of
+	the program (already defined or appearing in latter statements) not already appearing in the
+	statement;
+	\item[\texttt{s.~a:b, s' else t but b,c}] same as an \texttt{else} modifier but the modifier
+	does not apply for letters appearing after the \texttt{but} keyword;
+	\item[\texttt{s.~a:b, s' else t write a}] same as an \texttt{else} modifier but instead of
+	not modifying the letter, any letter is replace by $a$: syntactically like $| w:a, t$;
+	\item[\texttt{s.~a:b, s' else t write a but b,c}] is a combination of all the modifiers.
+\end{description}
+
+\doit{Use the \texttt{@clear} command to remove all instructions from the interpreter
+and then reenter your answer to exercise~\ref{ex:s} using compound statements.}
+
+\begin{exercise}\label{ex:p}
+Program in the interpreter a small machine that starting in state $s$ on the first letter of
+a word $x{\_}^{n}x\_$, halts at the same position, in state $z$ if $n=0$ or in state $p$ if
+$n>0$. Run it!
+\end{exercise}
+
+\subsection{Dealing with files}
+
+The interpreter is a nice tool to design parts of machines but there is no way to save
+the statements. Thus, a better approach to design big machines is to write the program
+in some source file (\texttt{.gni} extension is good practice) and to use the \texttt{@use}
+command to load it into the interpreter.
+
+\medskip
+The produced \textsc{Rut} machines can also be saved in order to be reloaded into the
+interpreter or used with third-party tools in a format independent of the \textsc{Gni}
+language.
+
+\medskip
+\noindent The syntax of the file commands is the following:
+\begin{description}
+	\item[\texttt{@use "toto.gni"}] open the file \texttt{toto.gni} and execute its statements;
+	\item[\texttt{@load "toto.rut"}] load the \texttt{toto.rut} \textsc{Rut} machine;
+	\item[\texttt{@save "toto.rut"}] save the current machine into the file \texttt{toto.rut}.
+\end{description}
+
+\doit{Write the source code of exercise~\ref{ex:p} into a file. Clear the interpreter, then
+use your source file. Save the compiled machine to a file. Quit the interpreter. 
+Relaunch it. Load your saved machine. Run it!}
+
+\begin{exercise} Now that you can modify source with a text editor and save the machine,
+building big machines
+is easier. Design and test a machine that starting in state $s$ on the first letter of an input
+word $u\in\left\{a,b\right\}$, written on a blank tape filled with $\_$, halts on the last
+letter of the word, in state $y$ if the word is a palindrome or in state $n$ otherwise. Feel free
+to add more symbols to fit your needs but be sure that the word $u$ is written on the tape at
+the end of the computation.
+\end{exercise}
+
+\subsection{Using macros}
+
+As such, the language is clearly sufficient to encode any machine but it can be boring to
+repeat over and over the same patterns, copies of the same sub-machine performing a given
+task like \emph{go to the first $x$ to the right}. To help on this, the language provides 
+a macro definition system.
+
+\medskip
+Defining a macro is really the same as defining the main machine. The same instructions are
+used. In both cases what you obtain is a \textsc{Rut} machine. But for macro definitions all
+states loose their names after definition but the ones you select as relevant to the outside
+world. Moreover, the machine associated to the macro is not added to the current main machine
+but stored for future use. Once the macro defined, to use it, you ask the interpreter to add
+a fresh copy of the machine states in the current environment.
+
+
+\medskip
+Indentation plays a big role in macro definition. After the \texttt{def} starting the
+macro definition, all the lines corresponding to that macro should BE indented by the
+same amount of spaces and/or tabulations, which should be strictly more than the indentation of
+the \texttt{def} line. When the indentation goes back to the original level, the macro
+definition ends.
+
+\medskip
+\noindent The syntax for macro definition and usage is the following:
+\begin{description}
+	\item[\texttt{def [i1,...,im|toto|o1,...,on>:}] begins the definition of a macro
+	called \texttt{toto}; the only states that will be visible from outside are $i_1$,
+	\ldots, $i_m$ and $o_1$, \ldots, $o_n$. There is no technical distinction between
+	$i$ and $o$ but it is good practice to consider $i$ as input states and $o$ as
+	output states, to facilitate reading of source code.
+	\item[\texttt{[a,b|titi|c,d,e>}] inserts a copy of the macro machine \texttt{titi}
+	in the current machine definition: the fresh copy of the machine \texttt{titi} will
+	use $a$, $b$ as input states for its $i_1$, $i_2$ and $c$, $d$, $e$ as output states
+	for its $o_1$, $o_2$, $o_3$.
+\end{description}
+
+The following code defines a macro and uses it:
+
+\begin{center}
+\begin{minipage}{0.8\linewidth}
+	$\null\llap{\tiny 1\kern 1.5em}\mbox{\sf def~}\left[\mbox{\em s} \middle| \mbox{\rm search} \middle| \mbox{\em t}\right>:$\\
+	$\null\llap{\tiny 2\kern 1.5em}\quad\mbox{\em s}.~\mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em u}$\\
+	$\null\llap{\tiny 3\kern 1.5em}\quad\mbox{\em u}.~\rightarrow, \mbox{\em r}$\\
+	$\null\llap{\tiny 4\kern 1.5em}\quad\mbox{\em r}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em u} \mid \mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em t}$\\
+	$\null\llap{\tiny 5\kern 1.5em}$\\
+	$\null\llap{\tiny 6\kern 1.5em}\left[\mbox{\em s} \middle| \mbox{\rm search} \middle| \mbox{\em a}\right>$\\
+	$\null\llap{\tiny 7\kern 1.5em}\left[\mbox{\em a} \middle| \mbox{\rm search} \middle| \mbox{\em b}\right>$\\
+	$\null\llap{\tiny 8\kern 1.5em}\mbox{\em b}.~\rightarrow, \mbox{\em c}$\\
+	$\null\llap{\tiny 9\kern 1.5em}\mbox{\em c}.~\mbox{\tt a}\mbox{:}\mbox{\tt b}, \mbox{\em d} \mid \mbox{\tt b}\mbox{:}\mbox{\tt a}, \mbox{\em d}$\\
+\end{minipage}
+\end{center}
+
+\vspace{-3ex}
+\doit{Observe the behavior of the given example starting from state $s$ on the first letter of a word
+of the kind $x{\_}^nx{\_}^mxa$.}
+
+\begin{exercise}\label{ex:cm}
+Reusing your answers to previous exercises as a basis to define macros, construct three macros
+$\left[\mbox{\em s} \middle| \mbox{\rm test} \middle| \mbox{\em z}, \mbox{\em p}\right>$,
+$\left[\mbox{\em s} \middle| \mbox{\rm inc} \middle| \mbox{\em t}\right>$
+and
+$\left[\mbox{\em s} \middle| \mbox{\rm dec} \middle| \mbox{\em t}\right>$,
+the three of them aimed to be started from a partial configuration of the kind $x{\_}^nx\_$ and
+respectively: testing whether $n=0$ or $n>0$, incrementing $n$, decrementing $n$. 
+Explain how to use these
+macros to simulate a one counter machine. Take a sample machine of that kind, encode it using
+the macros. Run it!
+\end{exercise}
+
+\section{Advanced topics}
+
+\subsection{Applying transforms}
+
+Sometimes, one would like to reuse a machine with slight syntactical transformations. Currently,
+two such transforms are defined in \textsc{Gni}. The syntax and usage is the following:
+\begin{description}
+	\item[\texttt{[a,b|lr titi|c,d,e>}] inserts a copy of the macro machine \texttt{titi}
+	where the move instruction have inverted directions: $\leftarrow$ is replaced with
+	$\rightarrow$ and reciprocally.
+	\item[\texttt{<o1,...,on|toto|i1,...,im]}] inserts a copy of the inverse of the machine
+	\texttt{toto}, provided that \texttt{toto} is reversible.
+\end{description}
+
+\doit{insert a \texttt{lr} copy of the previous \texttt{search} macro in the interpreter and dump it.
+Then, clear the interpreter (this does not remove the defined macros, just the main machine) and
+insert an inverse copy of \texttt{search}. Dump it, verify that both dumped machines are indeed
+the same! Restart with a search that is not symmetrical (for example, replace the right $x$ by $y$).}
+
+\begin{exercise}
+Rewrite the macros of exercise~\ref{ex:cm} so that the three macros are reversible, taking advantage
+of the transforms (for example using both \texttt{[|search|>} and \texttt{<|search|]}). To check that
+the macros are reversible, just try to insert their inverse in a cleared main machine.
+\end{exercise}
+
+\subsection{Hooper's style recursive calls}
+
+Macros are fine but co-recursive machines would lead to infinite state machine, which is forbidden.
+One way to avoid this is to use the tape of the Turing machine as a place to push entry point information
+before calling a machine and popping from that same place to know where to go back. \textsc{Gni} provides
+that kind of feature, with the following assumptions. It is the programmers responsibility to ensure
+that the called machine will never modify the tape cell from which it starts and will come back to
+that particular position at the end of the computation. The syntax and usage is the following:
+\begin{description}
+		\item[\texttt{fun [i1,...,im|toto|o1,...,on>:}] defines a callable function: the syntax
+		and principle are the same as for defining macros but the obtained machine is not usable
+		as a macro, it is used through calls and just one copy of it will be put into the main machine
+		if it is called from at least one place.
+		\item[\texttt{call [i1,...,im|toto|o1,...,on> from a}] insert a function call: when entering
+		states $i_1$ to $i_m$, the machine will push entry point information on the tape, replacing
+		the letter $a$ that is written on it; on return from the call it will pop the entry point
+		information, replace it by $a$ and change state to $o_1$,\ldots,$o_n$ depending on the return
+		state. The function does not need to exist at the time the call is inserted, so co-recursive
+		calls are allowed.
+		\item[\texttt{call [i1,...,im|lr toto|o1,...,on> from a}] calls the \texttt{lr} version of \texttt{toto}.
+		\item[\texttt{call <o1,...,on|toto|i1,...,im] from a}] calls the inverse version of \texttt{toto}.
+		\item[\texttt{call <o1,...,on|lr toto|i1,...,im] from a}] calls the inverse of the \texttt{lr} version of \texttt{toto}.
+		\item[\texttt{@link}] issuing a \texttt{call} instruction in the interpreter does not effectively
+		modify the machine but stores calling informations. The \texttt{@link} command is taking care
+		of wiring all calls, putting copies of used functions and \texttt{lr} and/or inverse of
+		them as appropriate, recursively inserting all needed functions that might be called by inserted
+		functions.
+		\item[\texttt{@link [a,b|toto|c,d,e>}] is a special form of linking that ensure that at least the
+		function \texttt{toto} will be linked, with input and output states named $a$, $b$ and
+		$c$, $d$, $e$.
+\end{description}
+
+The following code defines a function and uses it to recursively compute a recursive function on
+positive integers represented as blocks of $x$:
+\begin{center}
+\begin{minipage}{0.8\linewidth}
+	$\null\llap{\tiny 1\kern 1.5em}\mbox{\sf def~}\left[\mbox{\em s} \middle| \mbox{\rm test} \middle| \mbox{\em z},\mbox{\em p}\right>:$\\
+	$\null\llap{\tiny 2\kern 1.5em}\quad\mbox{\em s}.~\rightarrow, \mbox{\em r}$\\
+	$\null\llap{\tiny 3\kern 1.5em}\quad\mbox{\em r}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em za} \mid \mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em pa}$\\
+	$\null\llap{\tiny 4\kern 1.5em}\quad\mbox{\em za}.~\leftarrow, \mbox{\em z}$\\
+	$\null\llap{\tiny 5\kern 1.5em}\quad\mbox{\em pa}.~\leftarrow, \mbox{\em p}$\\
+	$\null\llap{\tiny 6\kern 1.5em}$\\
+	$\null\llap{\tiny 7\kern 1.5em}\mbox{\sf def~}\left[\mbox{\em s} \middle| \mbox{\rm dec} \middle| \mbox{\em t}\right>:$\\
+	$\null\llap{\tiny 8\kern 1.5em}\quad\mbox{\em s}.~\rightarrow, \mbox{\em a}$\\
+	$\null\llap{\tiny 9\kern 1.5em}\quad\mbox{\em a}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em b} \mid \mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em s}$\\
+	$\null\llap{\tiny 10\kern 1.5em}\quad\mbox{\em b}.~\leftarrow, \mbox{\em c}$\\
+	$\null\llap{\tiny 11\kern 1.5em}\quad\mbox{\em c}.~\mbox{\tt x}\mbox{:}\mbox{\tt \_}, \mbox{\em r}$\\
+	$\null\llap{\tiny 12\kern 1.5em}\quad\mbox{\em r}.~\leftarrow, \mbox{\em u}$\\
+	$\null\llap{\tiny 13\kern 1.5em}\quad\mbox{\em u}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em t} \mid \mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em r}$\\
+	$\null\llap{\tiny 14\kern 1.5em}$\\
+	$\null\llap{\tiny 15\kern 1.5em}\mbox{\sf def~}\left[\mbox{\em s} \middle| \mbox{\rm copy} \middle| \mbox{\em t}\right>:$\\
+	$\null\llap{\tiny 16\kern 1.5em}\quad\mbox{\em s}.~\rightarrow, \mbox{\em a}$\\
+	$\null\llap{\tiny 17\kern 1.5em}\quad\mbox{\em a}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em b} \mid \mbox{\tt x}\mbox{:}\mbox{\tt o}, \mbox{\em s}$\\
+	$\null\llap{\tiny 18\kern 1.5em}\quad\mbox{\em b}.~\leftarrow, \mbox{\em c}$\\
+	$\null\llap{\tiny 19\kern 1.5em}\quad\mbox{\em c}.~\mbox{\tt o}\mbox{:}\mbox{\tt o}, \mbox{\em b} \mbox{\sf ~else~} \mbox{\em d}$\\
+	$\null\llap{\tiny 20\kern 1.5em}\quad\mbox{\em d}.~\rightarrow, \mbox{\em e}$\\
+	$\null\llap{\tiny 21\kern 1.5em}\quad\mbox{\em e}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em t} \mid \mbox{\tt o}\mbox{:}\mbox{\tt x}, \mbox{\em f}$\\
+	$\null\llap{\tiny 22\kern 1.5em}\quad\mbox{\em f}.~\rightarrow, \mbox{\em g}$\\
+	$\null\llap{\tiny 23\kern 1.5em}\quad\mbox{\em g}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em h} \mid \mbox{\tt o}\mbox{:}\mbox{\tt o}, \mbox{\em f}$\\
+	$\null\llap{\tiny 24\kern 1.5em}\quad\mbox{\em h}.~\rightarrow, \mbox{\em i}$\\
+	$\null\llap{\tiny 25\kern 1.5em}\quad\mbox{\em i}.~\mbox{\tt \_}\mbox{:}\mbox{\tt x}, \mbox{\em j} \mid \mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em h}$\\
+	$\null\llap{\tiny 26\kern 1.5em}\quad\mbox{\em j}.~\leftarrow, \mbox{\em k}$\\
+	$\null\llap{\tiny 27\kern 1.5em}\quad\mbox{\em k}.~\mbox{\tt \_}\mbox{:}\mbox{\tt \_}, \mbox{\em b} \mid \mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em j}$\\
+	$\null\llap{\tiny 28\kern 1.5em}\quad$\\
+	$\null\llap{\tiny 29\kern 1.5em}\mbox{\sf fun~}\left[\mbox{\em s} \middle| \mbox{\rm f} \middle| \mbox{\em t}\right>:$\\
+	$\null\llap{\tiny 30\kern 1.5em}\quad\left[\mbox{\em s} \middle| \mbox{\rm test} \middle| \mbox{\em t},\mbox{\em p}\right>$\\
+	$\null\llap{\tiny 31\kern 1.5em}\quad\left[\mbox{\em p} \middle| \mbox{\rm copy} \middle| \mbox{\em a}\right>$\\
+	$\null\llap{\tiny 32\kern 1.5em}\quad\left[\mbox{\em a} \middle| \mbox{\rm dec} \middle| \mbox{\em b}\right>$\\
+	$\null\llap{\tiny 33\kern 1.5em}\quad\mbox{\sf call~}\left[\mbox{\em b} \middle| \mbox{\rm f} \middle| \mbox{\em c}\right> \mbox{\sf from~}\mbox{\tt \_}$\\
+	$\null\llap{\tiny 34\kern 1.5em}\quad\mbox{\em c}.~\mbox{\tt \_}\mbox{:}\mbox{\tt x}, \mbox{\em l}$\\
+	$\null\llap{\tiny 35\kern 1.5em}\quad\mbox{\em l}.~\leftarrow, \mbox{\em o}$\\
+	$\null\llap{\tiny 36\kern 1.5em}\quad\mbox{\em o}.~\mbox{\tt x}\mbox{:}\mbox{\tt x}, \mbox{\em l} \mbox{\sf ~else~} \mbox{\em t}$\\
+	$\null\llap{\tiny 37\kern 1.5em}$\\
+	$\null\llap{\tiny 38\kern 1.5em}\mbox{@link} \left[\mbox{\em s} \middle| \mbox{\rm f} \middle| \mbox{\em t}\right>$\\
+\end{minipage}
+\end{center}
+
+\doit{Type this example, understand it, run it from state $s$ starting from the left of words of
+the kind $\_x^n{\_}^\omega$ for small values of $n$.}
+
+\begin{exercise}\label{ex:fib}
+Construct a \textsc{Rut} machine that starting on state $s$ from the left of words of the kind
+$\_x^n{\_}^\omega$, halt on state $t$ on the left of a word of the kind  $\_x^m{\_}^\omega$
+such that $m=f(n)$ where $f$ is the fibonacci function defined
+by $f(0)=f(1)=1$ and $f(n+2)=f(n)+f(n+1)$.
+\end{exercise}
+
+\begin{exercise}
+Modify your answer from exercise~\ref{ex:fib} to construct a reversible machine
+computing the same function on valid images. More generally, explain how any injective function
+computed by a machine starting from an ultimately constant tape 
+can be computed by a reversible machine with the same input and output tape (\emph{i.e.} no garbage).
+\end{exercise}
+
+\end{document}

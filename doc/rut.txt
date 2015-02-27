@@ -1,0 +1,74 @@
+RUT fileformat description (sort of)
+------------------------------------
+
+A rut file encodes a Turing machine in a very simple way. The letters
+and states are encoded as consecutive integers, starting from 0. Instructions
+describing how to behave depending on the state of the machine can be of two
+different exclusive kinds:
+
+  * Movement instruction: [s. <-, s'] or [s. ->, s']. When in state [s], move
+    according to the instruction's direction (left [<-] or right [->]) and 
+    enter state [s'].
+
+  * Matching instruction: [s. a0:b0, s0 | a1:b1, s1 | ... | an:bn, sn]. When 
+    in state [s], read the letter on the tape. If the letter is [a0], replace
+    it by [b0] and enter state [s0]. If the letter is [a1], replace it by [b1]
+    and enter state [s1]. (...) If the letter is [an], replace it by [bn] and
+    enter state [sn]. If the letter is not in [a0], [a1], ..., [an], then the
+    machine halts.
+
+For convenience, the letters are given names and some of the states are also
+named (but some states can remain anonymous). The structure associating names
+to integers is called a symbol table.
+
+A rut file consists of a sequence of 32 bits words written in big endian order.
+The general structure of a file is the following:
+	- header;
+	- instructions table;
+	- matchings table;
+	- letters symbol table;
+	- states symbol table.
+
+All offsets inside the file are computed with respect to the start of the file.
+
++ Header consists of the following sequence of words:
+    - magic number = "rut\n" (ie 0x7275740a)
+    - number of letters = M
+    - number of states = N
+    - offset of the letters symbol table
+
++ Instructions table consists of exactly N words, each one describing a state
+  instruction. An odd value encodes a movement instruction as 4*s'+2*d+1 where
+  d is the direction (0 for left, 1 for right) and s' is the new state. An 
+  even value is an offset giving the position of the description of the 
+  matching instruction (inside the matchings table).
+
++ Matchings table is a sequence of matching rules. Each matching rule begins 
+  at an even offset (padding with 0 if necessary is good practice) and 
+  consists of an ordered sequence of matching cases (sorted according to the
+  letter read in increasing order), ended by a special EOM word. The encoding
+  goes as follows: EOM is encoded as 0. A matching case [a:b, s] is encoded as
+  two words. The first word encodes [a:b] as 2^16*a+2*b+1. The second word
+  encodes [s] as s.
+
++ Letters symbol table is a sequence of M character strings ended by '\0'
+  corresponding to the names of the letters in increasing order.
+
++ States symbol table is a ordered (by increasing state number) sequence of at
+  most N pairs of an integer (the state) and a character string ended by '\0'
+  (the name of the state). Ad lib.
+
+
+Remarks
+-------
+
+The maximum permitted number of letters seems to be 2^15 
+(due to matching constraints).
+
+The maximum permitted number of states seems to be 2^30 
+(due to movement encoding) or even 2^29 if you use signed integers.
+
+The format is a compromise to permit decent performances when manipulating the
+machine directly in its encoded form in memory. The only trick to get faster
+would be to better encode the forward and inverse symbol tables for human
+friendly display purpose.

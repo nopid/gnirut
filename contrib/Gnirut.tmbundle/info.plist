@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>name</key>
+	<string>Gnirut</string>
+	<key>ordering</key>
+	<array>
+		<string>C07519D5-8FB6-4F31-8C38-B39E2C22FB2E</string>
+		<string>E4E3C044-C3E7-400B-8959-1D8C552AEC27</string>
+	</array>
+	<key>uuid</key>
+	<string>1AB80B18-4900-41F3-8DB8-45CA595622CE</string>
+</dict>
+</plist>

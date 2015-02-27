@@ -1,0 +1,25 @@
+Reversibility of RUT machines: definition and testing
+-----------------------------------------------------
+
+(see rut.txt for a description of RUT machines instructions)
+
+A configuration of a RUT machine is:
+  - a coloring of a bi-infinite tape by letters;
+  - the location of the head (on which cell of the tape it is);
+  - the current state of the head.
+
+A RUT machine m is reversible if there exists a RUT machine m' with
+the same set of letters and the same set of states such that starting
+from any configuration c, making one step of m then one step of m',
+leads back to the initial configuration c.
+
+This kind of step by step reversibility can be checked efficiently
+directly on the machine description.
+
+The reverse of a movement instruction [s. ->, s'] has to be [s'. <-, s].
+
+The reverse of a matching case [s. a:b, s'] has to be [s'. b:a, s].
+
+To test reversibility, it is sufficient to reverse each instruction,
+combine matching cases into matching instructions and check that
+there is no collision of instructions.

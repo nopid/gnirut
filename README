@@ -1,0 +1,10 @@
+Gnirut toolkit v1.0
+-------------------
+
+The tools are quite rude by now: no explainations on errors, no help, ...
+
+To build, just enter src/ and make. There are some variables in the Makefile.
+
+To learn Gni, look at doc/tutorial.pdf
+
+Enjoy!

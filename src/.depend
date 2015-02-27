@@ -1,0 +1,37 @@
+gniyacc.cmi: rtm.cmi parsetree.cmi 
+instr.cmi: rtm.cmi 
+interp.cmi: rtm.cmi 
+parsetree.cmi: instr.cmi 
+rtm.cmi: matching.cmi 
+gnilex.cmo: rtm.cmi gniyacc.cmi 
+gnilex.cmx: rtm.cmx gniyacc.cmx 
+gnipp.cmo: rtm.cmi parsetree.cmi matching.cmi instr.cmi gniyacc.cmi \
+    gnilex.cmo 
+gnipp.cmx: rtm.cmx parsetree.cmi matching.cmx instr.cmx gniyacc.cmx \
+    gnilex.cmx 
+gnirut.cmo: interp.cmi 
+gnirut.cmx: interp.cmx 
+gnirutc.cmo: interp.cmi 
+gnirutc.cmx: interp.cmx 
+gniyacc.cmo: rtm.cmi parsetree.cmi matching.cmi instr.cmi gniyacc.cmi 
+gniyacc.cmx: rtm.cmx parsetree.cmi matching.cmx instr.cmx gniyacc.cmi 
+instr.cmo: rtm.cmi matching.cmi instr.cmi 
+instr.cmx: rtm.cmx matching.cmx instr.cmi 
+interp.cmo: rtm.cmi parsetree.cmi instr.cmi gniyacc.cmi gnilex.cmo interp.cmi 
+interp.cmx: rtm.cmx parsetree.cmi instr.cmx gniyacc.cmx gnilex.cmx interp.cmi 
+matching.cmo: matching.cmi 
+matching.cmx: matching.cmi 
+rtm.cmo: stab.cmi matching.cmi rtm.cmi 
+rtm.cmx: stab.cmx matching.cmx rtm.cmi 
+rutdump.cmo: rtm.cmi 
+rutdump.cmx: rtm.cmx 
+rutrev.cmo: rtm.cmi 
+rutrev.cmx: rtm.cmx 
+rutrun.cmo: rtm.cmi 
+rutrun.cmx: rtm.cmx 
+stab.cmo: stab.cmi 
+stab.cmx: stab.cmi 
+test1.cmo: rtm.cmi matching.cmi 
+test1.cmx: rtm.cmx matching.cmx 
+testparse.cmo: parsetree.cmi instr.cmi gniyacc.cmi gnilex.cmo 
+testparse.cmx: parsetree.cmi instr.cmx gniyacc.cmx gnilex.cmx 
